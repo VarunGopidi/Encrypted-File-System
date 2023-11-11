@@ -4,7 +4,7 @@ threading, pickle
 socket, mysql.connector
 datetime, time
 threading, fcntl
-shutil, rsa
+shutil, rsa, bcrypt
 hashlib
 getpass, getpass_asterisk
 base64, asn1
