@@ -1,0 +1,13 @@
+Libraries going to be used
+sys, os
+threading, pickle
+socket, mysql.connector
+datetime, time
+threading, fcntl
+shutil, rsa
+hashlib
+getpass, getpass_asterisk
+base64, asn1
+pkcs1, sha256
+
+Some of the libraries fromm cryptography hazmat primitives
