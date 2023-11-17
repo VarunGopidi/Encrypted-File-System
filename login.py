@@ -166,9 +166,11 @@ def login(c, cnx):
                     client.send(filename_encrypted)
                     data_encrypted = client.recv(65536)
                     print("The encrypted data using RSA algorithm: ",data_encrypted)
+                    log_activity("The new file was encrypted using RSA algoirthm ")
                     cipher = PKCS1_OAEP.new(private_key)
                     data = cipher.decrypt(data_encrypted).decode('utf-8')
                     print("The Decrypted data using User's private key of RSA:", data)
+                    log_activity("The file decrypted using %s private key of RSA ", username)
                     read_message = client.recv(1024)
                     print(read_message)
                 elif command == 3:
@@ -184,9 +186,11 @@ def login(c, cnx):
                     if(write_acess=='1'):
                         data_encrypted = client.recv(1024)
                         print("The encrypted data using RSA algorithm: ", data_encrypted)
+                        log_activity("The new file was encrypted using RSA algoirthm ")
                         cipher = PKCS1_OAEP.new(private_key)
                         data = cipher.decrypt(data_encrypted).decode('utf-8')
                         print("The Current content and Decrypted data using User's private key of RSA:", data)
+                        log_activity("The file decrypted using %s private key of RSA ", username)
                         new_data = input("Enter new content that you want to add: ")
                         client.send(new_data.encode('utf-8'))
                         write_message = client.recv(1024)
@@ -218,6 +222,7 @@ def login(c, cnx):
                     end_time = time.time()
                     execution_time = end_time - start_time
                     print("Total execution time: {:.2f} seconds".format(execution_time))
+                    log_activity("Total Exection time for this activity : {:.2f} seconds".format(execution_time)) 
                     exit(0)
         else:
             print("Username or password is incorrect")
