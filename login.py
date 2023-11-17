@@ -204,3 +204,20 @@ def login(c, cnx):
                     client.send(filename_encrypted)
                     data = client.recv(1024)
                     print(data)
+                elif command == 5:
+                    message = username + ':delete'
+                    client.send(message.encode('utf-8'))
+                    sample = client.recv(1024).decode('utf-8')
+                    print(sample)
+                    filename = input()
+                    filename_encrypted = filename.encode('utf-8')
+                    client.send(filename_encrypted)
+                    data = client.recv(1024)
+                    print(data)
+                else:
+                    end_time = time.time()
+                    execution_time = end_time - start_time
+                    print("Total execution time: {:.2f} seconds".format(execution_time))
+                    exit(0)
+        else:
+            print("Username or password is incorrect")
