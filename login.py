@@ -171,4 +171,26 @@ def login(c, cnx):
                     print("The Decrypted data using User's private key of RSA:", data)
                     read_message = client.recv(1024)
                     print(read_message)
-
+                elif command == 3:
+                    message = username + ':write'
+                    client.send(message.encode('utf-8'))
+                    sample = client.recv(1024).decode('utf-8')
+                    print(sample)
+                    filename = input()
+                    filename_encrypted = filename.encode('utf-8')
+                    client.send(filename_encrypted)
+                    write_acess = client.recv(1024).decode('utf-8')
+                    print(write_acess)
+                    if(write_acess=='1'):
+                        data_encrypted = client.recv(1024)
+                        print("The encrypted data using RSA algorithm: ", data_encrypted)
+                        cipher = PKCS1_OAEP.new(private_key)
+                        data = cipher.decrypt(data_encrypted).decode('utf-8')
+                        print("The Current content and Decrypted data using User's private key of RSA:", data)
+                        new_data = input("Enter new content that you want to add: ")
+                        client.send(new_data.encode('utf-8'))
+                        write_message = client.recv(1024)
+                        print(write_message)
+                    else:
+                        write_message = client.recv(1024)
+                        print(write_message)
