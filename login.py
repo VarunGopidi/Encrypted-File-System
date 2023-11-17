@@ -194,3 +194,13 @@ def login(c, cnx):
                     else:
                         write_message = client.recv(1024)
                         print(write_message)
+                elif command == 4:
+                    message = username + ':restore'
+                    client.send(message.encode('utf-8'))
+                    sample = client.recv(1024).decode('utf-8')
+                    print(sample)
+                    filename = input()
+                    filename_encrypted = filename.encode('utf-8')
+                    client.send(filename_encrypted)
+                    data = client.recv(1024)
+                    print(data)
