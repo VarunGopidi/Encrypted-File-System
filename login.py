@@ -15,7 +15,7 @@ from log_activity import log_activity
 
 def login(database_cursor, database_connection, network_client):
     def get_user_credentials():
-        entered_username = input("Enter username: ")
+        entered_username = input("Enter user_name: ")
         entered_password = input("Enter password: ")
         return entered_username, hashlib.sha256(entered_password.encode('utf-8')).hexdigest()
 
@@ -28,11 +28,26 @@ def login(database_cursor, database_connection, network_client):
         database_cursor.execute("SELECT public_key, private_key FROM access_control WHERE username=%s ORDER BY file_id DESC LIMIT 1", (user_name,))
         return database_cursor.fetchone()
 
+
+    def get_user_command():
+        while True:
+            try:
+                user_command = int(input("Enter a command (1. Create a File, 2. Read a File, 3. Write to File, 4. Restore a File, 5. Delete a File, 6. Exit from Application): "))
+                if 1 <= user_command <= 6:
+                    return user_command
+                else:
+                    print("Invalid command. Please enter a valid command.")
+            except ValueError:
+                print("Invalid input. Please enter a number.")
+
+
+
+
     def process_user_commands(user_name):
         command_start_time = time.time()
         log_activity(user_name, "as logged into File System")
         while True:
-            user_command = int(input("Enter a command (1. Create a File , 2. Read a File , 3. Write to File, 4. Restore a File , 5. Delete a File , 6. Exit from Application): "))
+            user_command = get_user_command();
             if user_command == 6:
                 command_end_time = time.time()
                 msg = f"Total execution time: {command_end_time - command_start_time:.2f} seconds"
