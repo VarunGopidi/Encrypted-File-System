@@ -192,7 +192,7 @@ def login(database_cursor, database_connection, network_client):
 
         process_user_commands(username)
     else:
-        print("Username or password is incorrect")
+        print("Username / password is incorrect")
         log_activity(username, "has attempeted to login into the file system")
 
 # Usage example
