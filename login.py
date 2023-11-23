@@ -47,7 +47,7 @@ def login(database_cursor, database_connection, network_client):
         command_start_time = time.time()
         log_activity(user_name, "as logged into File System")
         while True:
-            user_command = get_user_command();
+            user_command = get_user_command()
             if user_command == 6:
                 command_end_time = time.time()
                 msg = f"Total execution time: {command_end_time - command_start_time:.2f} seconds"
@@ -62,7 +62,7 @@ def login(database_cursor, database_connection, network_client):
 
     def execute_user_command(user_name, command_id):
         while True:
-                command = int(input("Enter a command (1. Create, 2. Read, 3. Write, 4. Restore, 5. Delete 6. exit): ")) # This queery will repeat if the user first selects 1 in process user commands and execute user commands again generates this query
+                command =get_user_command() # This queery will repeat if the user first selects 1 in process user commands and execute user commands again generates this query
 
                 if command == 1:
                     message = username + ':create'
