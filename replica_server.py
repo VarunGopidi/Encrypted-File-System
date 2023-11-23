@@ -17,20 +17,20 @@ def create_file(filepath):
         with open(filepath, 'w') as file:
             file.write('')
     except Exception as e:
-        logger.error(f"Error - creating file: {e} ")
+        logger.error(f"Error in creating a file: {e} ")
 
 def write_to_file(filepath, data):
     try:
         with open(filepath, 'a') as file:
             file.write(data.decode('utf-8'))
     except Exception as e:
-        logger.error(f"Error - writing to file: {e}")
+        logger.error(f"Error in  writing a file: {e}")
 
 def delete_file(filepath):
     try:
         os.remove(filepath)
     except Exception as e:
-        logger.error(f"Error - deleting file: {e}")
+        logger.error(f"Error while deleting a file: {e}")
 
 
 
