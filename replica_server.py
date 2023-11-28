@@ -1,9 +1,13 @@
 import socket
 import pickle
 import os
-
+import logging
 main_server = ("127.0.0.1", 65435)
+# Configure logging
+logging.basicConfig(level=logging.DEBUG)
 
+# Create a logger object
+logger = logging.getLogger(__name__)
 #constants
 PORT = 65442
 DIR_PATH = "C:/Users/kavya/OneDrive/Desktop/pcs_proj1"
