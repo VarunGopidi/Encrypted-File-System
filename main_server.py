@@ -45,6 +45,8 @@ logging.basicConfig(filename='/Users/saitejachalla/Desktop/Log/app.log', level=l
 # logging.error('This is an error message')
 # logging.critical('This is a critical message')
 
+
+#Using AES technique for directory encryption
 def encrypt_path(path, key):
     cipher = AES.new(key, AES.MODE_CBC)
     ct_bytes = cipher.encrypt(pad(path.encode(), AES.block_size))
@@ -61,6 +63,8 @@ def decrypt_path(encrypted_path, key):
 replica_servers = [("127.0.0.1", 65442),("127.0.0.1", 65443),("127.0.0.1", 65444)]
 
 
+
+#User registration, public and private key generation
 def register():
     usr = input("Enter a new username: ")
     pwd = input("Enter a new password: ")
@@ -79,7 +83,7 @@ def register():
         logging.info("New User was created with username : %s", usr)
 
 
-        #generating public_keys & private_keys for user
+        #generating public_keys & private_keys for user and storing in database
         key = rsa.generate_private_key(public_exponent=65537, key_size=1024)
         public_key = key.public_key().public_bytes(serialization.Encoding.PEM, serialization.PublicFormat.PKCS1)
         private_key = key.private_bytes(serialization.Encoding.PEM, serialization.PrivateFormat.PKCS8,serialization.NoEncryption())
@@ -90,6 +94,8 @@ def register():
         database_cursor.execute(sql, val)
         cnx.commit()
 
+
+#login function and operations on server
 def login():
     key = rsa.generate_private_key(
         public_exponent=65537,
@@ -121,16 +127,6 @@ def login():
         logging.critical("User password was used / taken from database")
         return stored_user_data and stored_user_data[0] == hashed_password
 
-    # def fetch_user_priv_keys(user_name):
-    #     database_cursor.execute("SELECT private_key FROM access_control WHERE username=%s and file_id=(select max(file_id) from access_control where username=%s)", (user_name,))
-    #     result= database_cursor.fetchone()
-    #     #print(result)
-    #     return result[0]
-    # def fetch_user_pub_keys(user_name):
-    #     database_cursor.execute("SELECT public_key FROM access_control WHERE username=%s and file_id=(select max(file_id) from access_control where username=%s)", (user_name,))
-    #     result= database_cursor.fetchone()
-    #     #print(result)
-    #     return result[0]
 
     def process_user_commands(user_name, command_start_time):
         y=command_start_time
@@ -281,11 +277,6 @@ def login():
     if verify_user_credentials(username, password_hash):
         print("Login successful! Connecting to the server..")
         logging.warning("Username %s has logged in successfully & was now able to use the file system ", username)
-
-        # user_private_key_pem = fetch_user_priv_keys(username)
-        # user_public_key_pem = fetch_user_pub_keys(username)
-        # rsa_public_key = RSA.import_key(base64.b64decode(user_public_key_pem))
-        # rsa_private_key = RSA.import_key(base64.b64decode(user_private_key_pem))
         command_start_time = time.time()
 
         execute_user_command(username, command_start_time)
@@ -294,6 +285,7 @@ def login():
         logging.warning("Failed to validate the credentials for %s user with provided details", username)
 
 
+#New pair keys generations
 def change_key():
     username = input("Enter the username: ")
     password = input("Enter the password: ")
@@ -323,10 +315,11 @@ def change_key():
             database_cursor.execute(sql, val)
             cnx.commit()
             print("New keys have been generated successfully!")
+            logging.info("The user %s has generated new keys successfully", username)
         else:
             print("The password is incorrect!")
 
-#def createfile()
+#Function for creation of a file
 def create_file(username):
     try:
         request_filename = "Please send me the file name that you want to create "
@@ -335,13 +328,13 @@ def create_file(username):
         filename = filename_encrypted
 
         database_cursor.execute("SELECT cre FROM access_control WHERE username=%s and file_id=%s", (username, 1))
-        access = database_cursor.fetchone()
+        access = database_cursor.fetchone()[0]
 
-        if (access[0] == 1):
+        if (access == 1):
             aes_key = get_random_bytes(16)  # AES key for 128-bit encryption
             # Encrypt the file path
             encrypted_file_path = encrypt_path("/Users/saitejachalla/Desktop/PCS Project/" + filename + ".txt", aes_key)
-            # When you need to use the file path, decrypt it
+            # Decrypting the file path
             decrypted_file_path = decrypt_path(encrypted_file_path, aes_key)
 
             with open(decrypted_file_path, 'w') as f:
@@ -374,11 +367,13 @@ def create_file(username):
 
                 database_cursor.execute("INSERT INTO access_control (public_key,private_key,username,re,wr,delet,cre,rest,file_id) values(%s,%s,%s,%s,%s,%s,%s,%s,%s)", (other_user_pub_key, other_user_pri_key, username, 1, 1, 1, 1, 1, file_id))
 
+                #inserting transaction log into database
                 sql_insert_transaction = "INSERT INTO transactions (username, file_name, transaction_type, transaction_time) VALUES (%s, %s, %s,%s)"
                 val_insert_transaction = (username, filename, "create", transaction_time)
                 database_cursor.execute(sql_insert_transaction, val_insert_transaction)
                 cnx.commit()
 
+            #sending operations done on server to replicas
             for replica_server in replica_servers:
                 with socket(AF_INET, SOCK_STREAM) as s:
                     s.connect(replica_server)
@@ -392,6 +387,7 @@ def create_file(username):
     except Exception as e:
         print("Error in creating file:", e)
 
+#Reading the data from files
 def fetch_file_content(usr):
     prompt_message = "Please send the file name"
     client.send(prompt_message.encode('utf-8'))
@@ -415,36 +411,55 @@ def fetch_file_content(usr):
 
         with open(decrypted_file_path, 'r') as f:
             #print("hiiiii1")
-        #with open("/Users/saitejachalla/Desktop/PCS Project/" + requested_filename + ".txt", 'r') as file:
-            file_content = f.read()
-            database_cursor.execute("select public_key from access_control where username=%s and file_id=(select max(file_id) from access_control where username=%s)",(usr, usr))
+            #with open("/Users/saitejachalla/Desktop/PCS Project/" + requested_filename + ".txt", 'r') as file:
+            database_cursor.execute("SELECT file_id FROM files WHERE filename=%s", (requested_filename,))
+            file_id = database_cursor.fetchone()[0]
 
-            # encryption_key_query = """SELECT public_key FROM access_control
-            #                           WHERE username=%s and file_id=(select max(file_id) from access_control where username=%s"""
-            # database_cursor.execute(encryption_key_query, (usr, usr))
-            public_key_data = database_cursor.fetchone()[0].replace('-----BEGIN RSA PUBLIC KEY-----\n', '').replace('\n-----END RSA PUBLIC KEY-----\n', '')
-            user_public_key = RSA.import_key(base64.b64decode(public_key_data))
+            database_cursor.execute("SELECT re FROM access_control WHERE username=%s AND file_id=%s", (username, file_id))
+            result = database_cursor.fetchone()
 
-            encryption_cipher = PKCS1_OAEP.new(user_public_key)
-            encrypted_data = encryption_cipher.encrypt(file_content.encode('utf-8'))
-            #print("hiiiii2")
-            current_time = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-            client.send(encrypted_data)
-            #print("hiiiii3")
+            if result is not None:
+                read_access = result[0]
+                print(read_access)
+                client.send(str(read_access).encode('utf-8'))
 
-            transaction_log_query = """INSERT INTO transactions 
-                                       (username, file_name, transaction_type, transaction_time) 
-                                       VALUES (%s, %s, %s, %s)"""
-            database_cursor.execute(transaction_log_query, (usr, requested_filename, "read", current_time))
-            cnx.commit()
+                if read_access == 1:
 
-            success_message = "The file has been read successfully!"
-            client.send(success_message.encode('utf-8'))
+                    file_content = f.read()
+                    database_cursor.execute("select public_key from access_control where username=%s and file_id=(select max(file_id) from access_control where username=%s)",(usr, usr))
+
+                    # encryption_key_query = """SELECT public_key FROM access_control
+                    #                           WHERE username=%s and file_id=(select max(file_id) from access_control where username=%s"""
+                    # database_cursor.execute(encryption_key_query, (usr, usr))
+                    public_key_data = database_cursor.fetchone()[0].replace('-----BEGIN RSA PUBLIC KEY-----\n', '').replace('\n-----END RSA PUBLIC KEY-----\n', '')
+                    user_public_key = RSA.import_key(base64.b64decode(public_key_data))
+
+                    encryption_cipher = PKCS1_OAEP.new(user_public_key)
+                    encrypted_data = encryption_cipher.encrypt(file_content.encode('utf-8'))
+                    #print("hiiiii2")
+                    current_time = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                    client.send(encrypted_data)
+                    #print("hiiiii3")
+
+                    transaction_log_query = """INSERT INTO transactions 
+                                               (username, file_name, transaction_type, transaction_time) 
+                                               VALUES (%s, %s, %s, %s)"""
+                    database_cursor.execute(transaction_log_query, (usr, requested_filename, "read", current_time))
+                    cnx.commit()
+
+                    success_message = "The file has been read successfully!"
+                    client.send(success_message.encode('utf-8'))
+            else:
+                print("You are not authorized to access the file or the file does not exist!")
+                read_message = "You do not have the permission to read!"
+                client.send(read_message.encode('utf-8'))
+
     except Exception as e:
         error_message = "You are not authorized to access the file or the file does not exist!"
         client.send(error_message.encode('utf-8'))
         print('File not found or access denied', e)
 
+#Writing the data into the files.
 def write_file(username):
     # Request the filename from the client
     client.send("Please send me the file name that you want to perform write operation on:".encode('utf-8'))
@@ -535,26 +550,33 @@ def write_file(username):
         client.send(write_message.encode('utf-8'))
         print('File not found.', e)
 
+#File restoration
 def restore_file(username):
     prompt_message = "Please send me the file name that you want to restore"
     client.send(prompt_message.encode('utf-8'))
     filename = client.recv(1024).decode('utf-8')
+    f = filename
+    #src_path = f"/Users/saitejachalla/Desktop/PCS Project/restore_files/{filename}.txt"
+    #dest_path = f"/Users/saitejachalla/Desktop/PCS Project/{filename}.txt"
 
-    src_path = f"/Users/saitejachalla/Desktop/PCS Project/restore_files/{filename}.txt"
-    dest_path = f"/Users/saitejachalla/Desktop/PCS Project/{filename}.txt"
+    aes_key = get_random_bytes(16)  # AES key for 128-bit encryption
+    src_path = encrypt_path("/Users/saitejachalla/Desktop/PCS Project/restore_files" + f + ".txt", aes_key)
+    decrypted_src_file_path = decrypt_path(src_path, aes_key)
+    dest_path = encrypt_path("/Users/saitejachalla/Desktop/PCS Project/" + f+ ".txt", aes_key)
+    decrypted_dest_file_path = decrypt_path(dest_path, aes_key)
 
     try:
         # Check user's permission to restore
-        database_cursor.execute("SELECT rest FROM access_control WHERE username=%s AND file_id=(SELECT file_id FROM files WHERE filename=%s)", (username, filename))
-        access = database_cursor.fetchone()
+        database_cursor.execute("SELECT rest FROM access_control WHERE username=%s AND file_id=(SELECT file_id FROM files WHERE filename=%s)", (username, f))
+        access = database_cursor.fetchone()[0]
 
-        if access and access[0] == 1:
+        if access == 1:
             # Copy file from backup to original location
-            shutil.copy(src_path, dest_path)
+            shutil.copy(decrypted_src_file_path, decrypted_dest_file_path)
 
             # Log the transaction
             transaction_time = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-            database_cursor.execute("INSERT INTO transactions (username, file_name, transaction_type, transaction_time) VALUES (%s, %s, %s, %s)", (username, filename, "restore", transaction_time))
+            database_cursor.execute("INSERT INTO transactions (username, file_name, transaction_type, transaction_time) VALUES (%s, %s, %s, %s)", (username, f, "restore", transaction_time))
             cnx.commit()
 
             # Send success message
@@ -562,7 +584,7 @@ def restore_file(username):
             client.send(restore_message.encode('utf-8'))
 
             # Replicate to other servers
-            replicate_to_servers(filename, src_path, replica_servers)
+            replicate_to_servers(f, src_path, replica_servers)
         else:
             client.send("You do not have the permission to restore!".encode('utf-8'))
 
@@ -580,30 +602,37 @@ def replicate_to_servers(filename, src_path, replica_servers):
                 s.sendall(pickle.dumps(request))
 
 
-
+#Deleting a file
 def delete_file(username):
     prompt_message = "Please send me the file name that you want to delete"
     client.send(prompt_message.encode('utf-8'))
     filename = client.recv(1024).decode('utf-8')
+    f = filename;
 
-    src_path = f"/Users/saitejachalla/Desktop/PCS Project/{filename}.txt"
-    dest_path = f"/Users/saitejachalla/Desktop/PCS Project/restore_files/{filename}.txt"
+    # src_path = f"/Users/saitejachalla/Desktop/PCS Project/{filename}.txt"
+    # dest_path = f"/Users/saitejachalla/Desktop/PCS Project/restore_files/{filename}.txt"
+    aes_key = get_random_bytes(16)  # AES key for 128-bit encryption
+    src_path = encrypt_path("/Users/saitejachalla/Desktop/PCS Project/" + f + ".txt", aes_key)
+    decrypted_src_file_path = decrypt_path(src_path, aes_key)
+    dest_path = encrypt_path("/Users/saitejachalla/Desktop/PCS Project/restore_files" + f + ".txt", aes_key)
+    decrypted_dest_file_path = decrypt_path(dest_path, aes_key)
 
     try:
         # Check if user has delete permissions
-        database_cursor.execute("select file_id from files where filename=%s", (filename,))
+        database_cursor.execute("select file_id from files where filename=%s", (f,))
         file_id = database_cursor.fetchone()[0]
         print(file_id)
-        database_cursor.execute("SELECT delet FROM access_control WHERE username=%s and file_id=%s", (username, file_id))
+        database_cursor.execute("SELECT delet FROM access_control WHERE username=%s and file_id=%s", (username,file_id))
         access = database_cursor.fetchone()
+        print(access)
 
-        if(access[0] == 1):
+        if(access == 1):
             # Move the file to restore folder instead of deleting
-            shutil.move(src_path, dest_path)
+            shutil.move(decrypted_src_file_path, decrypted_dest_file_path)
 
             # Log the transaction
             transaction_time = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-            database_cursor.execute("INSERT INTO transactions (username, file_name, transaction_type, transaction_time) VALUES (%s, %s, %s, %s)", (username, filename, "delete", transaction_time))
+            database_cursor.execute("INSERT INTO transactions (username, file_name, transaction_type, transaction_time) VALUES (%s, %s, %s, %s)", (username, f, "delete", transaction_time))
             cnx.commit()
 
             # Send success message
@@ -611,10 +640,9 @@ def delete_file(username):
             client.send(delete_message.encode('utf-8'))
 
             # Notify replica servers
-            notify_replica_servers('delete', filename, replica_servers)
+            notify_replica_servers('delete', f, replica_servers)
         else:
             client.send("You do not have the permission to delete!".encode('utf-8'))
-            exit(0)
 
     except FileNotFoundError:
         client.send("File not found".encode('utf-8'))
@@ -629,14 +657,10 @@ def notify_replica_servers(operation, filename, replica_servers):
             request = (operation, filename, '')
             s.sendall(pickle.dumps(request))
 
-# Usage example
-# Assuming 'c' is your database cursor, 'cnx' is your database connection, 'client' is the client socket, and 'replica_servers' is a list of replica server addresses
-# delete_file('username', c, cnx, client, replica_servers)
-
-
 
 cnx = pymysql.connect(host='127.0.0.1', user='root', password='Saiteja@22', db='pcsproj')
 database_cursor = cnx.cursor();
+print("How you want to be?")
 print("1. Server 2. Client")
 choose=int(input())
 if(choose==2):
@@ -648,19 +672,17 @@ if(choose==2):
     data = client.recv(1024)
     print(data.decode('utf-8'))
     while True:
-        print("Please choose an action that you want to perform")
-        print("1 - Register with server")
-        print("2 - Login and make connection with the server")
-        print("3- Change Key")
-    # create_connection()
-    #database connection
+        print("What operations below would like to do?")
+        print("1 - New User Registration")
+        print("2 - Login and connect to the server")
+        print("3- Generate new keys")
         try:
             choice = int(input())
             if choice == 1:
                 register()
-            elif choice==2:
+            elif choice == 2:
                 login()
-            elif choice==3:
+            elif choice == 3:
                 change_key();
             else:
                 exit(0)
@@ -693,7 +715,6 @@ else:
             elif command == "read":
                 fetch_file_content(username)
             elif command == "write":
-                #print("sai")
                 write_file(username)
             elif command == "restore":
                 restore_file(username)
@@ -702,5 +723,5 @@ else:
             else:
                 print("Invalid operation")
         except:
-            pass
-    # serv.close()
+            print("server shutting down.")
+            break
