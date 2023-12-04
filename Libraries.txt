@@ -4,10 +4,10 @@ threading, pickle
 socket, mysql.connector
 datetime, time
 threading, fcntl
-shutil, rsa, bcrypt
+shutil, rsa
 hashlib
 getpass, getpass_asterisk
 base64, asn1
 pkcs1, sha256
 
-Some of the libraries fromm cryptography hazmat primitives
+Some of the libraries from cryptography hazmat primitives
