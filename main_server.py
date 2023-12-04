@@ -277,6 +277,11 @@ def login():
     if verify_user_credentials(username, password_hash):
         print("Login successful! Connecting to the server..")
         logging.warning("Username %s has logged in successfully & was now able to use the file system ", username)
+
+        # user_private_key_pem = fetch_user_priv_keys(username)
+        # user_public_key_pem = fetch_user_pub_keys(username)
+        # rsa_public_key = RSA.import_key(base64.b64decode(user_public_key_pem))
+        # rsa_private_key = RSA.import_key(base64.b64decode(user_private_key_pem))
         command_start_time = time.time()
 
         execute_user_command(username, command_start_time)
@@ -338,8 +343,6 @@ def create_file(username):
             decrypted_file_path = decrypt_path(encrypted_file_path, aes_key)
 
             with open(decrypted_file_path, 'w') as f:
-            # file_path = "/Users/saitejachalla/Desktop/PCS Project/" + filename + ".txt"
-            # with open(file_path, 'w') as file:
                 data = "The file has been created successfully!"
                 client.send(data.encode('utf-8'))
 
@@ -406,12 +409,13 @@ def fetch_file_content(usr):
         aes_key = get_random_bytes(16)  # AES key for 128-bit encryption
             # Encrypt the file path
         encrypted_file_path = encrypt_path("/Users/saitejachalla/Desktop/PCS Project/" + requested_filename + ".txt", aes_key)
+        print("The encrypted directory path", encrypted_file_path)
             # When you need to use the file path, decrypt it
         decrypted_file_path = decrypt_path(encrypted_file_path, aes_key)
 
+
         with open(decrypted_file_path, 'r') as f:
-            #print("hiiiii1")
-            #with open("/Users/saitejachalla/Desktop/PCS Project/" + requested_filename + ".txt", 'r') as file:
+
             database_cursor.execute("SELECT file_id FROM files WHERE filename=%s", (requested_filename,))
             file_id = database_cursor.fetchone()[0]
 
@@ -428,19 +432,13 @@ def fetch_file_content(usr):
                     file_content = f.read()
                     database_cursor.execute("select public_key from access_control where username=%s and file_id=(select max(file_id) from access_control where username=%s)",(usr, usr))
 
-                    # encryption_key_query = """SELECT public_key FROM access_control
-                    #                           WHERE username=%s and file_id=(select max(file_id) from access_control where username=%s"""
-                    # database_cursor.execute(encryption_key_query, (usr, usr))
                     public_key_data = database_cursor.fetchone()[0].replace('-----BEGIN RSA PUBLIC KEY-----\n', '').replace('\n-----END RSA PUBLIC KEY-----\n', '')
                     user_public_key = RSA.import_key(base64.b64decode(public_key_data))
 
                     encryption_cipher = PKCS1_OAEP.new(user_public_key)
                     encrypted_data = encryption_cipher.encrypt(file_content.encode('utf-8'))
-                    #print("hiiiii2")
                     current_time = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                     client.send(encrypted_data)
-                    #print("hiiiii3")
-
                     transaction_log_query = """INSERT INTO transactions 
                                                (username, file_name, transaction_type, transaction_time) 
                                                VALUES (%s, %s, %s, %s)"""
@@ -449,10 +447,10 @@ def fetch_file_content(usr):
 
                     success_message = "The file has been read successfully!"
                     client.send(success_message.encode('utf-8'))
-            else:
-                print("You are not authorized to access the file or the file does not exist!")
-                read_message = "You do not have the permission to read!"
-                client.send(read_message.encode('utf-8'))
+                else:
+                    print("You are not authorized to access the file or the file does not exist!")
+                    read_message = "You do not have the permission to read!"
+                    client.send(read_message.encode('utf-8'))
 
     except Exception as e:
         error_message = "You are not authorized to access the file or the file does not exist!"
@@ -474,8 +472,6 @@ def write_file(username):
         decrypted_file_path = decrypt_path(encrypted_file_path, aes_key)
 
         with open(decrypted_file_path, 'r+') as f:
-        # Check if the file exists and the user has write access
-        #with open(f"/Users/saitejachalla/Desktop/PCS Project/{filename}.txt", 'r+') as f:
             database_cursor.execute("SELECT file_id FROM files WHERE filename=%s", (filename,))
             file_id = database_cursor.fetchone()[0]
 
@@ -549,18 +545,17 @@ def write_file(username):
         write_message = "You are not authorized to access the file or the file does not exist!"
         client.send(write_message.encode('utf-8'))
         print('File not found.', e)
+        exit(0)
 
 #File restoration
 def restore_file(username):
     prompt_message = "Please send me the file name that you want to restore"
     client.send(prompt_message.encode('utf-8'))
     filename = client.recv(1024).decode('utf-8')
-    f = filename
-    #src_path = f"/Users/saitejachalla/Desktop/PCS Project/restore_files/{filename}.txt"
-    #dest_path = f"/Users/saitejachalla/Desktop/PCS Project/{filename}.txt"
+    f = filename;
 
     aes_key = get_random_bytes(16)  # AES key for 128-bit encryption
-    src_path = encrypt_path("/Users/saitejachalla/Desktop/PCS Project/restore_files" + f + ".txt", aes_key)
+    src_path = encrypt_path("/Users/saitejachalla/Desktop/PCS Project/restore_files/" + f + ".txt", aes_key)
     decrypted_src_file_path = decrypt_path(src_path, aes_key)
     dest_path = encrypt_path("/Users/saitejachalla/Desktop/PCS Project/" + f+ ".txt", aes_key)
     decrypted_dest_file_path = decrypt_path(dest_path, aes_key)
@@ -584,7 +579,15 @@ def restore_file(username):
             client.send(restore_message.encode('utf-8'))
 
             # Replicate to other servers
-            replicate_to_servers(f, src_path, replica_servers)
+            with open(decrypted_dest_file_path, 'r') as restf:
+                data = restf.read()
+            print(data)
+            replication_data = data.encode('utf-8')
+            for replica_server in replica_servers:
+                with socket(AF_INET, SOCK_STREAM) as s:
+                    s.connect(replica_server)
+                    request = ('restore', f, replication_data)
+                    s.sendall(pickle.dumps(request))
         else:
             client.send("You do not have the permission to restore!".encode('utf-8'))
 
@@ -609,12 +612,10 @@ def delete_file(username):
     filename = client.recv(1024).decode('utf-8')
     f = filename;
 
-    # src_path = f"/Users/saitejachalla/Desktop/PCS Project/{filename}.txt"
-    # dest_path = f"/Users/saitejachalla/Desktop/PCS Project/restore_files/{filename}.txt"
     aes_key = get_random_bytes(16)  # AES key for 128-bit encryption
     src_path = encrypt_path("/Users/saitejachalla/Desktop/PCS Project/" + f + ".txt", aes_key)
     decrypted_src_file_path = decrypt_path(src_path, aes_key)
-    dest_path = encrypt_path("/Users/saitejachalla/Desktop/PCS Project/restore_files" + f + ".txt", aes_key)
+    dest_path = encrypt_path("/Users/saitejachalla/Desktop/PCS Project/restore_files/" + f + ".txt", aes_key)
     decrypted_dest_file_path = decrypt_path(dest_path, aes_key)
 
     try:
@@ -623,7 +624,7 @@ def delete_file(username):
         file_id = database_cursor.fetchone()[0]
         print(file_id)
         database_cursor.execute("SELECT delet FROM access_control WHERE username=%s and file_id=%s", (username,file_id))
-        access = database_cursor.fetchone()
+        access = database_cursor.fetchone()[0]
         print(access)
 
         if(access == 1):
@@ -644,11 +645,8 @@ def delete_file(username):
         else:
             client.send("You do not have the permission to delete!".encode('utf-8'))
 
-    except FileNotFoundError:
-        client.send("File not found".encode('utf-8'))
     except Exception as e:
-        client.send("An error occurred".encode('utf-8'))
-        print(f'Error: {e}')
+        client.send("File not found".encode('utf-8'))
 
 def notify_replica_servers(operation, filename, replica_servers):
     for server in replica_servers:
@@ -657,7 +655,7 @@ def notify_replica_servers(operation, filename, replica_servers):
             request = (operation, filename, '')
             s.sendall(pickle.dumps(request))
 
-
+server_port=65525
 cnx = pymysql.connect(host='127.0.0.1', user='root', password='Saiteja@22', db='pcsproj')
 database_cursor = cnx.cursor();
 print("How you want to be?")
@@ -667,7 +665,7 @@ if(choose==2):
     client_address = '127.0.0.1'
     client_port = 65506
     client = socket(AF_INET, SOCK_STREAM)
-    client.connect((client_address, client_port))
+    client.connect((client_address, server_port))
     client.send("Hi I am client".encode('utf-8'))
     data = client.recv(1024)
     print(data.decode('utf-8'))
