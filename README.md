@@ -53,3 +53,30 @@ The project utilizes a variety of Python libraries to achieve its functionality:
 
 4. **Run the System:**
    - Execute the main script to run the Distributed Encrypted File System.
+
+
+## Execution Steps
+
+Follow these steps to set up and run the Distributed Encrypted File System:
+
+### 1. Database Setup
+- **Using SQL Server:**
+  - Run the `sql_queries.txt` script to initialize the database.
+- **Database Verification:**
+  - Ensure that the tables `users`, `transactions`, `files`, and `access control` are successfully created in the `pcsproj` database.
+
+### 2. Environment Setup
+- **IDE Setup:**
+  - Open the project in your preferred IDE.
+- **Install Libraries:**
+  - Install all the required libraries by running `pip install -r requirements.txt`.
+
+### 3. Execution
+- **Start the Main Server:**
+  - Run `main_server.py`.
+  - When prompted, select the role as `server`.
+- **Replica Servers:**
+  - Immediately after starting the main server, run `replica_servers.py`.
+- **Client Operations:**
+  - Run `main_client.py`.
+  - Use the command prompt to select and perform the desired operations.
